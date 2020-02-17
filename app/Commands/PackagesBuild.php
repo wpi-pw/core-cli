@@ -10,7 +10,7 @@ use Composer\Package\Version\VersionParser;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 
-class PackagesBuild extends Command
+class PackagesBuild extends BaseCommand
 {
     /**
      * The name and signature of the console command.
@@ -60,8 +60,7 @@ class PackagesBuild extends Command
             $uid = 1;
 
             foreach ($plugin_versions as $plugin_version) {
-                $version_parser = new VersionParser();
-                $normalized_version = $version_parser->normalize($plugin_version->version);
+                $normalized_version = $this->version_parser->normalize($plugin_version->version);
                 $version_content = [
                     'name' => $plugin_package_name,
                     'type' => env('COMPOSER_PLUGINS_TYPE', 'wpseed-plugin'),
@@ -71,11 +70,6 @@ class PackagesBuild extends Command
                     'dist' => [
                         'type' => 'zip',
                         'url' => 'https://bitbucket.org/' . $plugin_package_name . '/get/v' . $plugin_version->version . '.zip'
-                    ],
-                    'source' => [
-                        'type' => 'git',
-                        'url' => 'https://bitbucket.org/' . $plugin_package_name . '.git',
-                        'reference' => 'tags/' . $plugin_version->version
                     ],
                     'require' => [
                         'composer/installers' => '~1.0'
@@ -94,7 +88,7 @@ class PackagesBuild extends Command
             $theme_content = [];
             $uid = 1;
 
-            foreach ($theme_versions as $ptheme_version) {
+            foreach ($theme_versions as $theme_version) {
                 $version_parser = new VersionParser();
                 $normalized_version = $version_parser->normalize($theme_version->version);
                 $version_content = [
