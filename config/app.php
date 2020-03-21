@@ -15,6 +15,10 @@ return [
 
     'name' => 'Wps',
 
+    'windows_filesystem' => env('WINDOWS_FILESYSTEM', false),
+
+    'hasura_active' => env('HASURA_ACTIVE', false),
+
     /*
     |--------------------------------------------------------------------------
     | Application Version

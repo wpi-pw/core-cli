@@ -2,6 +2,7 @@
 
 namespace App\Commands;
 
+use App\Helpers\HasuraHelper;
 use App\Models\Plugin;
 use App\Models\PluginVersion;
 use App\Models\Theme;
@@ -51,7 +52,11 @@ class PackagesAdd extends BaseCommand
 
         natsort($files_list);
 
-        $this->filesystem->remove(base_path(config('packages.extract')));
+        if (config('app.windows_filesystem')) {
+            exec('rmdir ' . base_path(config('packages.extract')) . ' /s /q');
+        } else {
+            $this->filesystem->remove(base_path(config('packages.extract')));
+        }
 
         foreach ($files_list as $files_item) {
             $file_path = $folder_upload . '/' . $files_item;
@@ -88,12 +93,13 @@ class PackagesAdd extends BaseCommand
                     'git@bitbucket.org:' . $bitbucket_account . '/' . $package_slug . '.git'
                 );
                 $git_repo->fetch(null, ['--all']);
-                $git_repo_tags = $git_repo->getTags() ? $git_repo->getTags() : [];
             } catch (\Throwable $t) {
                 $this->error('Repository Fatal Error: ' . $t->getMessage());
             }
 
-            if (in_array($this->version_parser->normalize($package_metadata['version']), array_map([$this->version_parser, 'normalize'], $git_repo_tags))) {
+            $git_repo_tags = $git_repo->getTags() ? $git_repo->getTags() : [];
+
+            if (in_array($this->version_parser->normalize($package_metadata['version']), array_map([$this->version_parser, 'normalize'], $git_repo_tags), true)) {
                 $this->error('Repository Error: Package version exists in repository');
                 continue;
             }
@@ -128,8 +134,16 @@ class PackagesAdd extends BaseCommand
             $this->db_package_insert($package_metadata['name'], $package_slug, $package_type, $package_metadata['description']);
             $this->db_package_version_insert($package_slug, $package_type, $package_metadata['version'], $file_hash_sha256, $file_hash_sha1, $file_hash_md5);
             $this->info('Package version added to database');
-        }
 
+            if ('plugin' === $package_type && config('app.hasura_active')) {
+                $this->info('Try add plugin ' . $package_metadata['name'] . ' to Wp Seed Database');
+                $result = $this->hasura->addPlugin($package_metadata['name'], $package_slug, $package_metadata['description']);
+                if (! $result) {
+                    $this->error('Wp Seed Database: Package add error');
+                }
+                $this->info('Wp Seed Database: ' . $result->getContent());
+            }
+        }
     }
 
     /**
