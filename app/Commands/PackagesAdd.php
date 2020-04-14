@@ -73,7 +73,7 @@ class PackagesAdd extends BaseCommand
             $package = new \Max_WP_Package($file_path);
             $package_type = $package->get_type();
             $package_metadata = $package->get_metadata();
-            $original_package_slug = preg_replace('/\s/', '', $package_metadata['slug']);
+            $original_package_slug = mb_strtolower(preg_replace('/\s/', '', $package_metadata['slug']), 'UTF-8');
             $package_slug = $original_package_slug;
             $package_uncorrect_folder = false;
             if (!preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $package_slug)) {
@@ -89,14 +89,14 @@ class PackagesAdd extends BaseCommand
             $file_hash_md5 = hash_file('md5', $file_path);
 
             $extract_path = base_path(config('packages.extract') . '/' . $file_hash_sha256);
-            $git_path = $extract_path . '/' . $package_slug;
+            $git_path = $extract_path . '/' . $package_metadata['slug'];
 
             $this->filesystem->mkdir($git_path, 0755);
 
             $this->bitbucket->create($bitbucket_account, $package_slug, substr($package_metadata['description'], 0, 755));
 
+            $git_repo = GitRepository::init($git_path);
             try {
-                $git_repo = GitRepository::init($git_path);
                 $git_repo->addRemote(
                     'origin',
                     'git@bitbucket.org:' . $bitbucket_account . '/' . $package_slug . '.git'
@@ -108,7 +108,7 @@ class PackagesAdd extends BaseCommand
 
             $git_repo_tags = $git_repo->getTags() ? $git_repo->getTags() : [];
 
-            if (in_array($this->version_parser->normalize($package_metadata['version']), array_map([$this->version_parser, 'normalize'], $git_repo_tags), true)) {
+            if (in_array(str_val($this->version_parser->normalize($package_metadata['version'])), array_map('strval', $git_repo_tags), true)) {
                 $this->error('Repository Error: Package version exists in repository');
                 continue;
             }
